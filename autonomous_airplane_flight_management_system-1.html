@@ -1,0 +1,1252 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AEROAI FMS v4.2 — Autonomous Flight Management System</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', monospace; }
+body { background: #0a0f0a; color: #00ff41; }
+
+:root {
+  --green: #00ff41;
+  --dim-green: #00aa2a;
+  --amber: #ffaa00;
+  --red: #ff3333;
+  --blue: #00aaff;
+  --cyan: #00ffdd;
+  --white: #e8e8e8;
+  --panel: #0d1a0d;
+  --panel2: #111b11;
+  --border: #1a3a1a;
+  --border2: #224422;
+}
+
+.cockpit {
+  background: #080e08;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0;
+  border: 1px solid var(--border);
+}
+
+/* TOP HEADER */
+.header {
+  background: var(--panel);
+  border-bottom: 2px solid var(--dim-green);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  gap: 16px;
+}
+.header-logo {
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--green);
+  letter-spacing: 3px;
+}
+.header-center {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+.status-pill {
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 2px;
+  letter-spacing: 1px;
+  font-weight: bold;
+  border: 1px solid;
+}
+.status-pill.auto { color: var(--cyan); border-color: var(--cyan); background: rgba(0,255,221,0.07); }
+.status-pill.ok { color: var(--green); border-color: var(--dim-green); background: rgba(0,255,65,0.05); }
+.status-pill.warn { color: var(--amber); border-color: var(--amber); background: rgba(255,170,0,0.08); }
+.status-pill.crit { color: var(--red); border-color: var(--red); background: rgba(255,51,51,0.1); animation: blink 1s step-end infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+.header-time { font-size: 11px; color: var(--dim-green); }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.pilot-indicator {
+  font-size: 10px;
+  padding: 3px 8px;
+  border: 1px solid;
+  border-radius: 2px;
+  letter-spacing: 1px;
+}
+.pilot-indicator.active { color: #ffffff; border-color: #ffffff; background: rgba(255,255,255,0.05); }
+.pilot-indicator.standby { color: #555; border-color: #333; }
+
+/* MAIN GRID */
+.main-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr 220px;
+  gap: 1px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+/* SIDE PANELS */
+.side-panel {
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.panel-section {
+  background: var(--panel2);
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-title {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--dim-green);
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border2);
+  padding-bottom: 4px;
+}
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 5px;
+}
+.metric-label { font-size: 9px; color: #557755; letter-spacing: 1px; }
+.metric-value { font-size: 13px; color: var(--green); }
+.metric-value.amber { color: var(--amber); }
+.metric-value.blue { color: var(--blue); }
+.metric-value.cyan { color: var(--cyan); }
+.metric-value.white { color: var(--white); }
+.metric-unit { font-size: 8px; color: #446644; margin-left: 2px; }
+
+/* FUEL BAR */
+.fuel-bar-wrap { margin: 4px 0; }
+.fuel-bar-track { height: 4px; background: #1a2a1a; border-radius: 1px; margin: 3px 0; }
+.fuel-bar-fill { height: 100%; border-radius: 1px; transition: width 2s; }
+
+/* ATTITUDE INDICATOR */
+.attitude-container {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 6px auto;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  overflow: hidden;
+  cursor: default;
+}
+.attitude-sky { position: absolute; width: 100%; height: 60px; background: #003366; top: 0; }
+.attitude-ground { position: absolute; width: 100%; height: 60px; background: #4a2800; bottom: 0; }
+.attitude-horizon { position: absolute; width: 100%; height: 2px; background: var(--amber); top: 50%; transform: translateY(-50%); }
+.attitude-cross {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  width: 60px; height: 2px;
+  background: var(--amber);
+}
+.attitude-cross::after {
+  content: '';
+  position: absolute;
+  width: 2px; height: 20px;
+  background: var(--amber);
+  top: -9px; left: 50%;
+  transform: translateX(-50%);
+}
+.attitude-label { font-size: 8px; text-align: center; color: var(--dim-green); margin-top: 3px; }
+
+/* COMPASS */
+.compass-wrap { text-align: center; margin: 4px 0; }
+.compass-ring {
+  position: relative;
+  width: 100px; height: 30px;
+  background: #050e05;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 0 auto;
+  cursor: default;
+}
+.compass-tape {
+  position: absolute;
+  top: 0; height: 100%;
+  display: flex; align-items: center;
+  font-size: 9px; color: var(--dim-green);
+  white-space: nowrap;
+  transition: left 1s;
+}
+.compass-marker {
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 2px; height: 100%;
+  background: var(--amber);
+  z-index: 2;
+  pointer-events: none;
+}
+.hdg-label { font-size: 14px; text-align: center; color: var(--cyan); margin-top: 3px; font-weight: bold; }
+
+/* CENTER DISPLAY */
+.center-display {
+  background: #060e06;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* PFD — Primary Flight Display */
+.pfd {
+  background: #050c05;
+  padding: 12px;
+  position: relative;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 60px 1fr 60px;
+  gap: 8px;
+}
+.pfd-title {
+  position: absolute;
+  top: 6px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px; color: var(--dim-green); letter-spacing: 2px;
+}
+
+/* SPEED TAPE */
+.tape {
+  background: #040c04;
+  border: 1px solid var(--border2);
+  position: relative;
+  overflow: hidden;
+  border-radius: 2px;
+  height: 200px;
+}
+.tape-label {
+  position: absolute;
+  top: 4px; left: 0; right: 0;
+  font-size: 8px; color: var(--dim-green);
+  text-align: center; letter-spacing: 1px;
+}
+.tape-current {
+  position: absolute;
+  top: 50%; left: 4px; right: 4px;
+  transform: translateY(-50%);
+  text-align: center;
+  font-size: 15px;
+  color: var(--green);
+  font-weight: bold;
+  border: 1px solid var(--dim-green);
+  padding: 2px 0;
+  background: #040c04;
+}
+.tape-unit {
+  position: absolute;
+  bottom: 4px; left: 0; right: 0;
+  font-size: 8px; color: var(--dim-green);
+  text-align: center;
+}
+
+/* VERTICAL SPEED */
+.vs-indicator {
+  background: #040c04;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  padding: 6px;
+  text-align: center;
+}
+.vs-value { font-size: 13px; color: var(--cyan); }
+.vs-arrow { font-size: 16px; }
+
+/* PFD CENTER */
+.pfd-center {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+.big-adi {
+  position: relative;
+  width: 160px; height: 160px;
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  overflow: hidden;
+}
+.big-adi-sky { position: absolute; width: 100%; height: 80px; background: linear-gradient(to bottom, #001a44, #003388); top: 0; }
+.big-adi-ground { position: absolute; width: 100%; height: 80px; background: linear-gradient(to top, #3d2200, #5e3500); bottom: 0; }
+.big-adi-horizon { position: absolute; width: 100%; height: 2px; background: var(--amber); top: 50%; transform: translateY(-50%); z-index: 2; }
+.big-adi-wings {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3; pointer-events: none;
+}
+.bank-arc {
+  position: absolute; top: 4px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px; color: var(--amber);
+  z-index: 3;
+}
+.bank-triangle {
+  position: absolute; top: 8px; left: 50%;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 8px solid var(--amber);
+  z-index: 3;
+}
+.pitch-scale {
+  position: absolute; width: 100%; z-index: 2; top: 50%; pointer-events: none;
+}
+.pitch-line {
+  position: absolute;
+  height: 1px; background: rgba(255,255,255,0.3);
+  left: 30%; right: 30%;
+  font-size: 7px; color: rgba(255,255,255,0.5);
+}
+
+/* FMA strip */
+.fma-strip {
+  background: #030a03;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
+  font-size: 9px;
+  width: 100%;
+}
+.fma-cell {
+  border-right: 1px solid var(--border2);
+  padding: 4px 6px;
+  text-align: center;
+}
+.fma-cell:last-child { border-right: none; }
+.fma-mode { font-size: 11px; color: var(--cyan); letter-spacing: 1px; }
+.fma-armed { font-size: 9px; color: var(--dim-green); }
+
+/* ND — Navigation Display */
+.nd-area {
+  background: #040a04;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  position: relative;
+  height: 160px;
+  overflow: hidden;
+}
+.nd-map-label { position: absolute; top: 4px; left: 6px; font-size: 8px; color: var(--dim-green); letter-spacing: 1px; }
+.nd-range { position: absolute; top: 4px; right: 6px; font-size: 8px; color: var(--dim-green); }
+.nd-aircraft {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.nd-waypoint {
+  position: absolute;
+  font-size: 8px;
+  color: var(--cyan);
+  pointer-events: none;
+}
+.nd-route {
+  position: absolute;
+  pointer-events: none;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+}
+
+/* MCDU — FLIGHT MANAGEMENT */
+.mcdu {
+  background: #050d05;
+  border-top: 1px solid var(--border2);
+  padding: 10px 12px;
+}
+.mcdu-tabs {
+  display: flex;
+  gap: 1px;
+  margin-bottom: 8px;
+}
+.mcdu-tab {
+  font-size: 9px;
+  padding: 4px 10px;
+  border: 1px solid var(--border2);
+  cursor: pointer;
+  letter-spacing: 1px;
+  border-radius: 2px;
+  color: var(--dim-green);
+  transition: all 0.15s;
+  background: transparent;
+}
+.mcdu-tab:hover { color: var(--green); border-color: var(--dim-green); }
+.mcdu-tab.active { color: var(--panel); background: var(--dim-green); border-color: var(--dim-green); }
+.mcdu-content { display: none; }
+.mcdu-content.active { display: block; }
+
+/* ROUTE TABLE */
+.route-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.route-table th { color: #446644; font-size: 8px; letter-spacing: 1px; text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--border2); font-weight: normal; }
+.route-table td { padding: 4px 6px; border-bottom: 1px solid #0a180a; }
+.route-table tr.active-wpt td { color: var(--cyan); background: rgba(0,255,221,0.04); }
+.route-table tr.passed-wpt td { color: #334433; text-decoration: line-through; }
+.route-table tr.future-wpt td { color: var(--green); }
+.dist-col { color: var(--amber) !important; }
+.eta-col { color: var(--dim-green) !important; }
+
+/* AUTOPILOT PANEL */
+.ap-panel {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+}
+.ap-btn {
+  background: #030a03;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 5px 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ap-btn:hover { border-color: var(--dim-green); }
+.ap-btn.engaged { border-color: var(--cyan); background: rgba(0,255,221,0.06); }
+.ap-btn.engaged .ap-btn-label { color: var(--cyan); }
+.ap-btn-label { font-size: 9px; letter-spacing: 1px; color: var(--dim-green); }
+.ap-btn-status { font-size: 8px; color: #334433; }
+.ap-btn.engaged .ap-btn-status { color: var(--cyan); }
+
+/* SYSTEMS GRID */
+.sys-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sys-card {
+  background: #030a03;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  padding: 6px 8px;
+}
+.sys-name { font-size: 8px; color: var(--dim-green); letter-spacing: 1px; margin-bottom: 4px; }
+.sys-status { font-size: 10px; }
+.sys-bar { height: 3px; background: var(--border); border-radius: 1px; margin-top: 3px; }
+.sys-bar-fill { height: 100%; border-radius: 1px; transition: width 2s; }
+
+/* ALERTS */
+.alerts-panel { }
+.alert-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 10px;
+  border-bottom: 1px solid #0a180a;
+}
+.alert-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.alert-dot.info { background: var(--cyan); }
+.alert-dot.warn { background: var(--amber); }
+.alert-dot.ok { background: var(--green); }
+.alert-time { font-size: 8px; color: var(--dim-green); min-width: 40px; }
+.alert-msg { color: var(--white); }
+.alert-item.warn .alert-msg { color: var(--amber); }
+.alert-item.ok .alert-msg { color: var(--green); }
+
+/* BOTTOM STATUS BAR */
+.status-bar {
+  background: var(--panel);
+  border-top: 2px solid var(--dim-green);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  font-size: 9px;
+}
+.status-cell {
+  padding: 6px 14px;
+  border-right: 1px solid var(--border2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.status-cell:last-child { border-right: none; margin-left: auto; }
+.status-cell-label { color: var(--dim-green); letter-spacing: 1px; }
+.status-cell-val { color: var(--green); font-size: 11px; }
+.status-cell-val.amber { color: var(--amber); }
+.status-cell-val.cyan { color: var(--cyan); }
+.status-cell-val.blue { color: var(--blue); }
+
+/* PILOT OVERRIDE MODAL */
+.override-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,5,0,0.85);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.override-modal.visible { display: flex; }
+.override-box {
+  background: #0d1a0d;
+  border: 2px solid var(--amber);
+  border-radius: 4px;
+  padding: 24px;
+  max-width: 340px;
+  width: 90%;
+}
+.override-title { font-size: 13px; color: var(--amber); letter-spacing: 2px; margin-bottom: 10px; }
+.override-body { font-size: 11px; color: var(--white); margin-bottom: 16px; line-height: 1.6; }
+.override-actions { display: flex; gap: 8px; }
+.override-btn {
+  flex: 1; padding: 8px; font-family: inherit;
+  font-size: 10px; letter-spacing: 1px;
+  border: 1px solid; border-radius: 2px;
+  cursor: pointer; background: transparent;
+  transition: all 0.15s;
+}
+.override-btn.confirm { color: var(--red); border-color: var(--red); }
+.override-btn.confirm:hover { background: rgba(255,51,51,0.1); }
+.override-btn.cancel { color: var(--dim-green); border-color: var(--dim-green); }
+.override-btn.cancel:hover { background: rgba(0,170,42,0.1); }
+
+/* SCROLL IN LEFT NAV PANEL */
+.scrollable { overflow-y: auto; flex: 1; }
+.scrollable::-webkit-scrollbar { width: 3px; }
+.scrollable::-webkit-scrollbar-thumb { background: var(--border2); }
+@keyframes blink-slow { 0%,100%{opacity:1} 50%{opacity:.3} }
+</style>
+</head>
+<body>
+<div class="cockpit">
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-logo">⬡ AEROAI FMS v4.2</div>
+  <div class="header-center">
+    <span class="status-pill auto">AUTO FLIGHT</span>
+    <span class="status-pill ok" id="ap-status">A/P ENGAGED</span>
+    <span class="status-pill ok" id="at-status">A/THR ACTIVE</span>
+    <span class="status-pill warn" id="wx-status">WX ADVISORY</span>
+  </div>
+  <div class="header-right">
+    <div class="pilot-indicator active" id="p1-ind">PF: CAPT</div>
+    <div class="pilot-indicator standby" id="p2-ind">PNF: FO</div>
+    <div class="header-time" id="utc-clock">UTC 14:23:07</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-grid">
+
+  <!-- LEFT PANEL -->
+  <div class="side-panel">
+    <!-- ADI -->
+    <div class="panel-section">
+      <div class="panel-title">ATTITUDE · BANK · PITCH</div>
+      <div class="attitude-container" id="adi-mini">
+        <div class="attitude-sky"></div>
+        <div class="attitude-ground"></div>
+        <div class="attitude-horizon"></div>
+        <div class="attitude-cross"></div>
+      </div>
+      <div class="attitude-label">PITCH <span id="pitch-val">+2.1°</span> · BANK <span id="bank-val">0.3°L</span></div>
+    </div>
+    <!-- SPEED -->
+    <div class="panel-section">
+      <div class="panel-title">SPEED MANAGEMENT</div>
+      <div class="metric-row">
+        <span class="metric-label">IAS</span>
+        <span class="metric-value" id="ias-val">278<span class="metric-unit">KT</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">GS</span>
+        <span class="metric-value cyan" id="gs-val">491<span class="metric-unit">KT</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">TAS</span>
+        <span class="metric-value" id="tas-val">463<span class="metric-unit">KT</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">MACH</span>
+        <span class="metric-value white" id="mach-val">M .784</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">TARGET</span>
+        <span class="metric-value amber" id="tgt-spd">280<span class="metric-unit">KT</span></span>
+      </div>
+    </div>
+    <!-- ALTITUDE -->
+    <div class="panel-section">
+      <div class="panel-title">ALTITUDE · V/S</div>
+      <div class="metric-row">
+        <span class="metric-label">ALT</span>
+        <span class="metric-value" id="alt-val">35,220<span class="metric-unit">FT</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">FL</span>
+        <span class="metric-value cyan" id="fl-val">FL352</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">SEL ALT</span>
+        <span class="metric-value amber" id="sel-alt">FL380</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">V/S</span>
+        <span class="metric-value blue" id="vs-val">+1,200<span class="metric-unit">FPM</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">QNH</span>
+        <span class="metric-value" id="qnh-val">1013<span class="metric-unit">HPa</span></span>
+      </div>
+    </div>
+    <!-- COMPASS -->
+    <div class="panel-section">
+      <div class="panel-title">HEADING</div>
+      <div class="compass-wrap">
+        <div class="compass-ring">
+          <div class="compass-tape" id="compass-tape">
+            &nbsp;N&nbsp;&nbsp;&nbsp;030&nbsp;&nbsp;&nbsp;060&nbsp;&nbsp;&nbsp;E&nbsp;&nbsp;&nbsp;120&nbsp;&nbsp;&nbsp;150&nbsp;&nbsp;&nbsp;S&nbsp;&nbsp;&nbsp;210&nbsp;&nbsp;&nbsp;240&nbsp;&nbsp;&nbsp;W&nbsp;&nbsp;&nbsp;300&nbsp;&nbsp;&nbsp;330&nbsp;&nbsp;&nbsp;N&nbsp;&nbsp;&nbsp;
+          </div>
+          <div class="compass-marker"></div>
+        </div>
+        <div class="hdg-label" id="hdg-val">HDG 047°</div>
+      </div>
+      <div class="metric-row" style="margin-top:6px">
+        <span class="metric-label">TRACK</span>
+        <span class="metric-value" id="trk-val">049°</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">XTK ERR</span>
+        <span class="metric-value" style="color:#7fff7f">0.02NM</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER DISPLAY -->
+  <div class="center-display">
+
+    <!-- PFD -->
+    <div class="pfd">
+      <div class="pfd-title">PRIMARY FLIGHT DISPLAY</div>
+
+      <!-- Speed tape -->
+      <div style="display:flex;flex-direction:column;gap:6px;padding-top:18px">
+        <div class="tape" style="height:190px">
+          <div class="tape-label">SPD</div>
+          <div class="tape-current" id="pfd-ias">278</div>
+          <div class="tape-unit">KT IAS</div>
+        </div>
+      </div>
+
+      <!-- Center -->
+      <div class="pfd-center" style="padding-top:18px">
+        <!-- FMA -->
+        <div class="fma-strip">
+          <div class="fma-cell">
+            <div class="fma-mode">SPD</div>
+            <div class="fma-armed">SPEED SEL</div>
+          </div>
+          <div class="fma-cell">
+            <div class="fma-mode">LNAV</div>
+            <div class="fma-armed">VNAV PTH</div>
+          </div>
+          <div class="fma-cell">
+            <div class="fma-mode">A/P 1</div>
+            <div class="fma-armed">A/P 2 ARM</div>
+          </div>
+        </div>
+        <!-- Big ADI -->
+        <div class="big-adi" id="big-adi">
+          <div class="big-adi-sky"></div>
+          <div class="big-adi-ground"></div>
+          <div class="big-adi-horizon" id="big-horizon"></div>
+          <div class="bank-triangle"></div>
+          <svg class="big-adi-wings" width="120" height="20" viewBox="0 0 120 20">
+            <path d="M10 10 L40 10 L50 16 L60 10 L70 16 L80 10 L110 10" stroke="#FFD700" stroke-width="2" fill="none"/>
+            <circle cx="60" cy="10" r="3" fill="#FFD700"/>
+          </svg>
+        </div>
+        <!-- Route info -->
+        <div style="width:100%;background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:6px 8px;font-size:9px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span style="color:var(--dim-green)">ACTIVE WPT</span>
+            <span style="color:var(--cyan)" id="active-wpt">MAXIR</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span style="color:var(--dim-green)">DIST TO WPT</span>
+            <span style="color:var(--amber)" id="dist-wpt">47.3 NM</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--dim-green)">ETA DEST</span>
+            <span style="color:var(--green)" id="eta-dest">17:42Z</span>
+          </div>
+        </div>
+        <!-- ND -->
+        <div class="nd-area" style="width:100%">
+          <div class="nd-map-label">ND · ARC 80NM</div>
+          <div class="nd-range">EGLL</div>
+          <svg width="100%" height="100%" viewBox="0 0 260 160" style="position:absolute;top:0;left:0;pointer-events:none">
+            <!-- grid lines -->
+            <circle cx="130" cy="130" r="80" fill="none" stroke="#112211" stroke-width="0.5"/>
+            <circle cx="130" cy="130" r="50" fill="none" stroke="#112211" stroke-width="0.5"/>
+            <line x1="130" y1="10" x2="130" y2="150" stroke="#112211" stroke-width="0.5"/>
+            <line x1="10" y1="130" x2="250" y2="130" stroke="#112211" stroke-width="0.5"/>
+            <!-- route line -->
+            <polyline points="130,130 145,70 185,40" fill="none" stroke="#00ffdd" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.7"/>
+            <polyline points="185,40 220,18" fill="none" stroke="#00ffdd" stroke-width="1" stroke-dasharray="3 4" opacity="0.4"/>
+            <!-- waypoints -->
+            <polygon points="145,65 148,71 142,71" fill="#00ffdd" opacity="0.9"/>
+            <text x="150" y="68" font-size="7" fill="#00ffdd" font-family="monospace">MAXIR</text>
+            <polygon points="185,35 188,41 182,41" fill="#00aaff" opacity="0.7"/>
+            <text x="190" y="38" font-size="7" fill="#00aaff" font-family="monospace">ALESO</text>
+            <polygon points="220,13 223,19 217,19" fill="#557755" opacity="0.6"/>
+            <text x="225" y="16" font-size="7" fill="#557755" font-family="monospace">EGLL</text>
+            <!-- aircraft symbol -->
+            <g transform="translate(130,130)">
+              <polygon points="0,-10 3,4 0,2 -3,4" fill="#FFD700" opacity="0.95"/>
+              <line x1="-8" y1="2" x2="8" y2="2" stroke="#FFD700" stroke-width="1.5"/>
+            </g>
+            <!-- wind barb -->
+            <g transform="translate(20,20)">
+              <line x1="0" y1="0" x2="8" y2="14" stroke="#ff9944" stroke-width="1"/>
+              <text x="12" y="8" font-size="6" fill="#ff9944" font-family="monospace">270/34</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Altitude tape -->
+      <div style="display:flex;flex-direction:column;gap:6px;padding-top:18px">
+        <div class="tape" style="height:190px">
+          <div class="tape-label">ALT</div>
+          <div class="tape-current" id="pfd-alt" style="font-size:12px">35220</div>
+          <div class="tape-unit">FT</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MCDU TABS -->
+    <div class="mcdu">
+      <div class="mcdu-tabs">
+        <button class="mcdu-tab active" onclick="switchTab('route',this)">ROUTE</button>
+        <button class="mcdu-tab" onclick="switchTab('ap',this)">AUTOPILOT</button>
+        <button class="mcdu-tab" onclick="switchTab('systems',this)">SYSTEMS</button>
+        <button class="mcdu-tab" onclick="switchTab('alerts',this)">ALERTS <span id="alert-badge" style="color:var(--amber)">▲2</span></button>
+        <button class="mcdu-tab" onclick="switchTab('perf',this)">PERF</button>
+      </div>
+
+      <!-- ROUTE -->
+      <div class="mcdu-content active" id="tab-route">
+        <table class="route-table">
+          <thead>
+            <tr><th>WPT</th><th>AIRWAY</th><th>ALT</th><th>DIST</th><th>ETA</th><th>STATUS</th></tr>
+          </thead>
+          <tbody>
+            <tr class="passed-wpt"><td>KJFK</td><td>DEP</td><td>0</td><td class="dist-col">—</td><td class="eta-col">12:18Z</td><td>PASSED</td></tr>
+            <tr class="passed-wpt"><td>HAPIE</td><td>DCT</td><td>FL100</td><td class="dist-col">—</td><td class="eta-col">12:41Z</td><td>PASSED</td></tr>
+            <tr class="passed-wpt"><td>NEVIN</td><td>DCT</td><td>FL240</td><td class="dist-col">—</td><td class="eta-col">13:02Z</td><td>PASSED</td></tr>
+            <tr class="active-wpt"><td>MAXIR</td><td>N793A</td><td>FL380</td><td class="dist-col">47.3</td><td class="eta-col">14:56Z</td><td>▶ ACTIVE</td></tr>
+            <tr class="future-wpt"><td>ALESO</td><td>N793A</td><td>FL380</td><td class="dist-col">189.4</td><td class="eta-col">15:48Z</td><td>FUTURE</td></tr>
+            <tr class="future-wpt"><td>MIMKU</td><td>UN503</td><td>FL380</td><td class="dist-col">312.1</td><td class="eta-col">16:31Z</td><td>FUTURE</td></tr>
+            <tr class="future-wpt"><td>BURAK</td><td>UL10</td><td>FL360</td><td class="dist-col">498.7</td><td class="eta-col">17:08Z</td><td>FUTURE</td></tr>
+            <tr class="future-wpt"><td>EGLL</td><td>STAR</td><td>0</td><td class="dist-col">634.2</td><td class="eta-col">17:42Z</td><td>DEST</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- AUTOPILOT -->
+      <div class="mcdu-content" id="tab-ap">
+        <div class="ap-panel">
+          <div class="ap-btn engaged" id="btn-ap1" onclick="toggleAP('btn-ap1')">
+            <div class="ap-btn-label">A/P 1</div>
+            <div class="ap-btn-status">ENGAGED</div>
+          </div>
+          <div class="ap-btn" id="btn-ap2" onclick="toggleAP('btn-ap2')">
+            <div class="ap-btn-label">A/P 2</div>
+            <div class="ap-btn-status">ARMED</div>
+          </div>
+          <div class="ap-btn engaged" id="btn-athr" onclick="toggleAP('btn-athr')">
+            <div class="ap-btn-label">A/THR</div>
+            <div class="ap-btn-status">SPEED</div>
+          </div>
+          <div class="ap-btn engaged" id="btn-lnav" onclick="toggleAP('btn-lnav')">
+            <div class="ap-btn-label">LNAV</div>
+            <div class="ap-btn-status">ACTIVE</div>
+          </div>
+          <div class="ap-btn engaged" id="btn-vnav" onclick="toggleAP('btn-vnav')">
+            <div class="ap-btn-label">VNAV</div>
+            <div class="ap-btn-status">PATH</div>
+          </div>
+          <div class="ap-btn" id="btn-loc" onclick="toggleAP('btn-loc')">
+            <div class="ap-btn-label">LOC</div>
+            <div class="ap-btn-status">ARMED</div>
+          </div>
+          <div class="ap-btn" id="btn-gs" onclick="toggleAP('btn-gs')">
+            <div class="ap-btn-label">G/S</div>
+            <div class="ap-btn-status">ARMED</div>
+          </div>
+          <div class="ap-btn" id="btn-ovrd" onclick="showOverride()">
+            <div class="ap-btn-label" style="color:var(--red)">PILOT</div>
+            <div class="ap-btn-status" style="color:var(--red)">OVERRIDE</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:10px">
+          <div style="background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:6px;text-align:center">
+            <div style="color:var(--dim-green);font-size:8px;margin-bottom:3px">SEL SPD</div>
+            <div style="color:var(--amber)">280 KT</div>
+          </div>
+          <div style="background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:6px;text-align:center">
+            <div style="color:var(--dim-green);font-size:8px;margin-bottom:3px">SEL HDG</div>
+            <div style="color:var(--cyan)">047°</div>
+          </div>
+          <div style="background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:6px;text-align:center">
+            <div style="color:var(--dim-green);font-size:8px;margin-bottom:3px">SEL ALT</div>
+            <div style="color:var(--amber)">FL380</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SYSTEMS -->
+      <div class="mcdu-content" id="tab-systems">
+        <div class="sys-grid">
+          <div class="sys-card">
+            <div class="sys-name">ENG 1 N1</div>
+            <div class="sys-status" style="color:var(--green)" id="eng1">84.2%</div>
+            <div class="sys-bar"><div class="sys-bar-fill" style="width:84%;background:var(--green)"></div></div>
+          </div>
+          <div class="sys-card">
+            <div class="sys-name">ENG 2 N1</div>
+            <div class="sys-status" style="color:var(--green)" id="eng2">84.5%</div>
+            <div class="sys-bar"><div class="sys-bar-fill" style="width:84.5%;background:var(--green)"></div></div>
+          </div>
+          <div class="sys-card">
+            <div class="sys-name">FUEL LEFT</div>
+            <div class="sys-status" style="color:var(--cyan)" id="fuel-l">9,842 KG</div>
+            <div class="sys-bar"><div class="sys-bar-fill" id="fuel-l-bar" style="width:62%;background:var(--cyan)"></div></div>
+          </div>
+          <div class="sys-card">
+            <div class="sys-name">FUEL RIGHT</div>
+            <div class="sys-status" style="color:var(--cyan)" id="fuel-r">9,761 KG</div>
+            <div class="sys-bar"><div class="sys-bar-fill" id="fuel-r-bar" style="width:61%;background:var(--cyan)"></div></div>
+          </div>
+          <div class="sys-card">
+            <div class="sys-name">HYD GREEN</div>
+            <div class="sys-status" style="color:var(--green)">3000 PSI</div>
+            <div class="sys-bar"><div class="sys-bar-fill" style="width:100%;background:var(--green)"></div></div>
+          </div>
+          <div class="sys-card">
+            <div class="sys-name">HYD YELLOW</div>
+            <div class="sys-status" style="color:var(--green)">3000 PSI</div>
+            <div class="sys-bar"><div class="sys-bar-fill" style="width:100%;background:var(--green)"></div></div>
+          </div>
+          <div class="sys-card">
+            <div class="sys-name">ELEC BUS 1</div>
+            <div class="sys-status" style="color:var(--green)">115V NORM</div>
+            <div class="sys-bar"><div class="sys-bar-fill" style="width:100%;background:var(--green)"></div></div>
+          </div>
+          <div class="sys-card">
+            <div class="sys-name">CABIN ALT</div>
+            <div class="sys-status" style="color:var(--green)">6,800 FT</div>
+            <div class="sys-bar"><div class="sys-bar-fill" style="width:68%;background:var(--green)"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALERTS -->
+      <div class="mcdu-content" id="tab-alerts">
+        <div class="alerts-panel">
+          <div class="alert-item warn">
+            <div class="alert-dot warn"></div>
+            <span class="alert-time">14:18Z</span>
+            <span class="alert-msg">MODERATE TURBULENCE REPORTED AHEAD — FL340-360 OFFSET SUGGESTED</span>
+          </div>
+          <div class="alert-item warn">
+            <div class="alert-dot warn"></div>
+            <span class="alert-time">14:11Z</span>
+            <span class="alert-msg">FUEL IMBALANCE 81 KG — AUTO CROSSFEED INITIATED</span>
+          </div>
+          <div class="alert-item">
+            <div class="alert-dot info"></div>
+            <span class="alert-time">13:54Z</span>
+            <span class="alert-msg">ATC CLEARED FL380 — VNAV PROFILE UPDATED</span>
+          </div>
+          <div class="alert-item ok">
+            <div class="alert-dot ok"></div>
+            <span class="alert-time">13:40Z</span>
+            <span class="alert-msg">TOP OF CLIMB ACHIEVED — CRUISE PHASE ACTIVE</span>
+          </div>
+          <div class="alert-item ok">
+            <div class="alert-dot ok"></div>
+            <span class="alert-time">12:18Z</span>
+            <span class="alert-msg">DEPARTURE KJFK RWY 31L — ALL SYSTEMS NORMAL</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PERF -->
+      <div class="mcdu-content" id="tab-perf">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:10px">
+          <div style="background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:6px">
+            <div style="color:var(--dim-green);font-size:8px;margin-bottom:4px">CI (COST INDEX)</div>
+            <div style="color:var(--green)">45</div>
+          </div>
+          <div style="background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:6px">
+            <div style="color:var(--dim-green);font-size:8px;margin-bottom:4px">ECON SPD</div>
+            <div style="color:var(--amber)">M .782</div>
+          </div>
+          <div style="background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:6px">
+            <div style="color:var(--dim-green);font-size:8px;margin-bottom:4px">OPT FL</div>
+            <div style="color:var(--cyan)">FL382</div>
+          </div>
+          <div style="background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:6px">
+            <div style="color:var(--dim-green);font-size:8px;margin-bottom:4px">FUEL BURN</div>
+            <div style="color:var(--green)">4.82 T/H</div>
+          </div>
+          <div style="background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:6px">
+            <div style="color:var(--dim-green);font-size:8px;margin-bottom:4px">FUEL DEST</div>
+            <div style="color:var(--green)">6,240 KG</div>
+          </div>
+          <div style="background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:6px">
+            <div style="color:var(--dim-green);font-size:8px;margin-bottom:4px">FUEL ALTN</div>
+            <div style="color:var(--green)">2,180 KG</div>
+          </div>
+          <div style="background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:6px">
+            <div style="color:var(--dim-green);font-size:8px;margin-bottom:4px">ZFW</div>
+            <div style="color:var(--white)">162.4 T</div>
+          </div>
+          <div style="background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:6px">
+            <div style="color:var(--dim-green);font-size:8px;margin-bottom:4px">TOW</div>
+            <div style="color:var(--white)">181.4 T</div>
+          </div>
+          <div style="background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:6px">
+            <div style="color:var(--dim-green);font-size:8px;margin-bottom:4px">LW EST</div>
+            <div style="color:var(--white)">170.6 T</div>
+          </div>
+        </div>
+        <div style="margin-top:8px;background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:8px">
+          <div style="color:var(--dim-green);font-size:8px;letter-spacing:1px;margin-bottom:6px">WIND COMPONENT</div>
+          <div style="display:flex;gap:16px;font-size:10px">
+            <span style="color:var(--green)">↑ TW +12KT</span>
+            <span style="color:var(--dim-green)">SAT -57°C</span>
+            <span style="color:var(--dim-green)">ISA DEV -2°C</span>
+            <span style="color:var(--amber)">TROPO 36,000FT</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="side-panel">
+    <!-- ENGINE -->
+    <div class="panel-section">
+      <div class="panel-title">ENGINE INSTRUMENTS</div>
+      <div class="metric-row">
+        <span class="metric-label">EGT 1/2</span>
+        <span class="metric-value" id="egt-val">622°<span class="metric-unit">/</span>618°C</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">N2 1/2</span>
+        <span class="metric-value">94.1<span class="metric-unit">%</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">FF 1/2</span>
+        <span class="metric-value cyan">2,410<span class="metric-unit">KG/H</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">OIL QTY</span>
+        <span class="metric-value" style="color:#7fff7f">14.2<span class="metric-unit">QT</span></span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">OIL TEMP</span>
+        <span class="metric-value">104°C</span>
+      </div>
+    </div>
+    <!-- WEATHER -->
+    <div class="panel-section">
+      <div class="panel-title">WEATHER · WX RADAR</div>
+      <div class="metric-row">
+        <span class="metric-label">OAT</span>
+        <span class="metric-value blue">-57°C</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">WIND</span>
+        <span class="metric-value">270°<span class="metric-unit">/</span>34KT</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">WX CELL</span>
+        <span class="metric-value amber">180NM</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">TURB</span>
+        <span class="metric-value amber">MODERATE</span>
+      </div>
+      <div style="background:#050e05;border:1px solid #1a2a1a;padding:4px;border-radius:2px;font-size:8px;color:#446644;margin-top:4px">
+        SIGMET: CB ACTIVITY 47N 020W — DEVIATE 20NM NORTH RECOMMENDED
+      </div>
+    </div>
+    <!-- COMM / NAV -->
+    <div class="panel-section">
+      <div class="panel-title">COMM · NAV · ATC</div>
+      <div class="metric-row">
+        <span class="metric-label">VHF 1</span>
+        <span class="metric-value cyan">133.175</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">VHF 2</span>
+        <span class="metric-value">122.800</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">SQUAWK</span>
+        <span class="metric-value white">2347</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">ADS-B</span>
+        <span class="metric-value" style="color:#7fff7f">ON · OUT</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">ACARS</span>
+        <span class="metric-value" style="color:#7fff7f">LINK OK</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">DATALINK</span>
+        <span class="metric-value cyan">CPDLC LOGON</span>
+      </div>
+    </div>
+    <!-- AI SUPERVISOR -->
+    <div class="panel-section" style="flex:1">
+      <div class="panel-title">AI SUPERVISOR · MONITOR</div>
+      <div style="font-size:9px;color:var(--dim-green);margin-bottom:6px">AUTONOMOUS SYSTEMS</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;justify-content:space-between;font-size:9px">
+          <span style="color:#557755">COLLISION AVOID</span>
+          <span style="color:var(--green)">ACTIVE</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px">
+          <span style="color:#557755">TERRAIN WARN</span>
+          <span style="color:var(--green)">ACTIVE</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px">
+          <span style="color:#557755">TCAS II</span>
+          <span style="color:var(--green)">ACTIVE</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px">
+          <span style="color:#557755">WIND SHEAR</span>
+          <span style="color:var(--green)">ACTIVE</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px">
+          <span style="color:#557755">STALL PROTECT</span>
+          <span style="color:var(--green)">ACTIVE</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px">
+          <span style="color:#557755">ENVELOPE PROT</span>
+          <span style="color:var(--green)">ACTIVE</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px">
+          <span style="color:#557755">AI CONFIDENCE</span>
+          <span style="color:var(--cyan)" id="ai-conf">97.4%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px">
+          <span style="color:#557755">PILOT LOAD</span>
+          <span style="color:var(--dim-green)" id="pilot-load">MONITORING</span>
+        </div>
+      </div>
+      <div style="margin-top:8px;border-top:1px solid var(--border2);padding-top:6px">
+        <div style="font-size:8px;color:var(--dim-green);margin-bottom:4px">PILOT ACTIVITY</div>
+        <div style="display:flex;gap:6px">
+          <div style="flex:1;background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:4px;text-align:center">
+            <div style="font-size:8px;color:#557755">CAPT</div>
+            <div style="font-size:9px;color:var(--green)">AWAKE</div>
+            <div style="width:6px;height:6px;border-radius:50%;background:var(--green);margin:3px auto 0;animation:blink-slow 3s infinite"></div>
+          </div>
+          <div style="flex:1;background:#030a03;border:1px solid var(--border2);border-radius:2px;padding:4px;text-align:center">
+            <div style="font-size:8px;color:#557755">FO</div>
+            <div style="font-size:9px;color:var(--green)">AWAKE</div>
+            <div style="width:6px;height:6px;border-radius:50%;background:var(--green);margin:3px auto 0;animation:blink-slow 4s infinite .5s"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM STATUS BAR -->
+<div class="status-bar">
+  <div class="status-cell">
+    <div class="status-cell-label">FLIGHT</div>
+    <div class="status-cell-val">AA178 KJFK→EGLL</div>
+  </div>
+  <div class="status-cell">
+    <div class="status-cell-label">PHASE</div>
+    <div class="status-cell-val cyan">CRUISE</div>
+  </div>
+  <div class="status-cell">
+    <div class="status-cell-label">ELAPSED</div>
+    <div class="status-cell-val" id="elapsed">02:05:14</div>
+  </div>
+  <div class="status-cell">
+    <div class="status-cell-label">REMAIN</div>
+    <div class="status-cell-val amber" id="remain">03:18:53</div>
+  </div>
+  <div class="status-cell">
+    <div class="status-cell-label">DIST REMAIN</div>
+    <div class="status-cell-val">634.2 NM</div>
+  </div>
+  <div class="status-cell">
+    <div class="status-cell-label">ACFT TYPE</div>
+    <div class="status-cell-val">A321XLR</div>
+  </div>
+  <div class="status-cell">
+    <div class="status-cell-label">TOTAL FUEL</div>
+    <div class="status-cell-val cyan" id="total-fuel">19,603 KG</div>
+  </div>
+  <div class="status-cell">
+    <div class="status-cell-label">AUTO CTRL</div>
+    <div class="status-cell-val" style="color:var(--cyan)">FMS ACTIVE</div>
+  </div>
+</div>
+</div>
+
+<!-- PILOT OVERRIDE MODAL -->
+<div class="override-modal" id="override-modal">
+  <div class="override-box">
+    <div class="override-title">⚠ PILOT OVERRIDE REQUEST</div>
+    <div class="override-body">
+      Requesting manual control transfer from autonomous flight system.<br><br>
+      Current A/P status will be disengaged. All automated protections remain active. Pilot is responsible for aircraft control.<br><br>
+      <span style="color:var(--amber)">CONFIRM: Captain acknowledges manual takeover?</span>
+    </div>
+    <div class="override-actions">
+      <button class="override-btn confirm" onclick="confirmOverride()">CONFIRM TAKEOVER</button>
+      <button class="override-btn cancel" onclick="closeOverride()">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Tab switching
+function switchTab(id, el) {
+  document.querySelectorAll('.mcdu-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.mcdu-content').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+
+// AP button toggle
+function toggleAP(id) {
+  const btn = document.getElementById(id);
+  const isEngaged = btn.classList.contains('engaged');
+  if (!isEngaged) {
+    btn.classList.add('engaged');
+    btn.querySelector('.ap-btn-status').textContent = 'ACTIVE';
+  } else {
+    btn.classList.remove('engaged');
+    btn.querySelector('.ap-btn-status').textContent = 'OFF';
+  }
+}
+
+// Override modal
+function showOverride() { document.getElementById('override-modal').classList.add('visible'); }
+function closeOverride() { document.getElementById('override-modal').classList.remove('visible'); }
+function confirmOverride() {
+  document.getElementById('override-modal').classList.remove('visible');
+  // Disengage A/P
+  ['btn-ap1','btn-ap2','btn-athr','btn-lnav','btn-vnav'].forEach(id => {
+    const b = document.getElementById(id);
+    b.classList.remove('engaged');
+    b.querySelector('.ap-btn-status').textContent = 'OFF';
+  });
+  document.getElementById('ap-status').textContent = 'MANUAL';
+  document.getElementById('ap-status').className = 'status-pill warn';
+  document.getElementById('pilot-load').textContent = 'MANUAL CTL';
+  document.getElementById('pilot-load').style.color = 'var(--amber)';
+  addAlert('warn', 'PILOT TAKEOVER — MANUAL FLIGHT ACTIVE');
+}
+
+function addAlert(type, msg) {
+  const now = new Date();
+  const utc = now.toUTCString().match(/(\d+:\d+):\d+ GMT/);
+  const time = utc ? utc[1] + 'Z' : '??:??Z';
+  const panel = document.getElementById('tab-alerts');
+  const item = document.createElement('div');
+  item.className = 'alert-item ' + type;
+  item.innerHTML = `<div class="alert-dot ${type}"></div><span class="alert-time">${time}</span><span class="alert-msg">${msg}</span>`;
+  panel.insertBefore(item, panel.firstChild);
+}
+
+// UTC Clock
+function updateClock() {
+  const n = new Date();
+  const h = String(n.getUTCHours()).padStart(2,'0');
+  const m = String(n.getUTCMinutes()).padStart(2,'0');
+  const s = String(n.getUTCSeconds()).padStart(2,'0');
+  document.getElementById('utc-clock').textContent = `UTC ${h}:${m}:${s}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Elapsed / remain
+let elapsed = 7514; // seconds
+let remain = 11933;
+function updateTimers() {
+  elapsed++;
+  if (remain > 0) remain--;
+  function fmt(s) {
+    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  }
+  document.getElementById('elapsed').textContent = fmt(elapsed);
+  document.getElementById('remain').textContent = fmt(remain);
+}
+setInterval(updateTimers, 1000);
+
+// Simulated live data
+let t = 0;
+function updateData() {
+  t += 0.05;
+  // IAS fluctuation
+  const ias = Math.round(278 + Math.sin(t * 0.7) * 2);
+  document.getElementById('ias-val').innerHTML = ias + '<span class="metric-unit">KT</span>';
+  document.getElementById('pfd-ias').textContent = ias;
+  // ALT climbing to FL380
+  const altNum = Math.round(35220 + Math.sin(t * 0.3) * 80 + t * 12);
+  const altCapped = Math.min(altNum, 38000);
+  document.getElementById('alt-val').innerHTML = altCapped.toLocaleString() + '<span class="metric-unit">FT</span>';
+  document.getElementById('pfd-alt').textContent = altCapped.toLocaleString();
+  const fl = 'FL' + Math.round(altCapped/100);
+  document.getElementById('fl-val').textContent = fl;
+  // VS
+  const vs = altCapped < 38000 ? Math.round(1200 + Math.sin(t) * 100) : Math.round(Math.sin(t * 2) * 30);
+  document.getElementById('vs-val').innerHTML = (vs >= 0 ? '+' : '') + vs.toLocaleString() + '<span class="metric-unit">FPM</span>';
+  // HDG subtle drift
+  const hdg = Math.round(47 + Math.sin(t * 0.4) * 1.5);
+  document.getElementById('hdg-val').textContent = `HDG ${String(hdg).padStart(3,'0')}°`;
+  document.getElementById('trk-val').textContent = String(hdg + 2).padStart(3,'0') + '°';
+  // pitch/bank
+  const pitch = (2.1 + Math.sin(t * 0.5) * 0.4).toFixed(1);
+  const bank = (Math.sin(t * 0.3) * 0.8).toFixed(1);
+  document.getElementById('pitch-val').textContent = `+${pitch}°`;
+  document.getElementById('bank-val').textContent = `${Math.abs(bank)}°${parseFloat(bank) >= 0 ? 'R' : 'L'}`;
+  // engine
+  const eng1 = (84.2 + Math.sin(t * 1.1) * 0.4).toFixed(1);
+  const eng2 = (84.5 + Math.sin(t * 0.9 + 0.5) * 0.4).toFixed(1);
+  document.getElementById('eng1').textContent = eng1 + '%';
+  document.getElementById('eng2').textContent = eng2 + '%';
+  // fuel
+  const fuelL = Math.round(9842 - t * 0.4);
+  const fuelR = Math.round(9761 - t * 0.38);
+  document.getElementById('fuel-l').textContent = fuelL.toLocaleString() + ' KG';
+  document.getElementById('fuel-r').textContent = fuelR.toLocaleString() + ' KG';
+  document.getElementById('total-fuel').textContent = (fuelL + fuelR).toLocaleString() + ' KG';
+  const fuelPct = Math.max(0, Math.round((fuelL / 15840) * 100));
+  document.getElementById('fuel-l-bar').style.width = fuelPct + '%';
+  document.getElementById('fuel-r-bar').style.width = Math.max(0,fuelPct-1) + '%';
+  // EGT
+  const egt1 = Math.round(622 + Math.sin(t * 1.3) * 4);
+  document.getElementById('egt-val').innerHTML = egt1 + '°<span class="metric-unit">/</span>' + (egt1 - 4) + '°C';
+  // AI confidence
+  const conf = (97.4 + Math.sin(t * 0.2) * 0.3).toFixed(1);
+  document.getElementById('ai-conf').textContent = conf + '%';
+}
+setInterval(updateData, 800);
+</script>
+</body>
+</html>
